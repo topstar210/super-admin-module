@@ -36,10 +36,14 @@
                                     $trs = '';
                                     if(count($companies) > 0){
                                         foreach($companies as $company){
+                                            $http = isset($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) == 'on' ? 'https' : 'http';
+                                            $site_url = $http."://" . $company['domain'].".".ROOT_DOMAIN;
                                             $db = explode(".", $company['domain'])[0];
                                             $trs .= '<tr rid="'.$company['id'].'" class="company_row">';
                                                 $trs .= '<td>'.$company['company'].'</td>';
-                                                $trs .= '<td target="domain" db="'.$db.'">'.$company['domain'].'</td>';
+                                                $trs .= '<td target="domain" db="'.$db.'"><a href="'.$site_url.'" target="_blank">
+                                                    '.$company['domain'].".".ROOT_DOMAIN.'
+                                                </a></td>';
                                                 $trs .= '<td>'.$company['email'].'</td>';
                                                 $trs .= '<td class="del-com">
                                                             <a href="javascript:void(0);" class="company-edit"><i class="fa fa-edit"></i></a>
@@ -149,7 +153,7 @@
             $(this).addClass("company-hover");
         });
     
-        $(document).on("click", "tr.company_row td:not('.del-com')", function(e){
+        $(document).on("click", "tr.company_row td:eq(0)", function(e){
             $("tr.company_row").removeClass("company-selected");
             $(this).parent().addClass("company-selected");
             var db = $(this).parent().find("td[target=domain]").attr('db').trim();

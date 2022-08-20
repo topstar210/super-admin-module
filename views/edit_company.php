@@ -23,7 +23,7 @@
                                         class="control-label">
                                         <small class="req text-danger">*
                                         </small>Domain Name</label>
-                                    <input type="text" id="domain" name="domain" value="<?php echo $company->domain; ?>" readonly class="form-control"
+                                    <input type="text" id="domain" name="domain" value="<?php echo $company->domain.".".ROOT_DOMAIN; ?>" readonly class="form-control"
                                         placeholder="company1.experteasegroup.com"
                                         aria-invalid="true">
                                 </div>

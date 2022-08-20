@@ -83,17 +83,25 @@ class Super_admin extends AdminController
     public function addcompany()
     {
         $maindomain = $_POST['main_domain'];
-        $subdomain = $_POST['domain'];
-        $db = explode(".", $subdomain)[0];
-        $dbname = "main_crm_" . preg_replace("/[^a-zA-Z0-9]+/", "", $db);
+        $subdomain = strtolower($_POST['domain']);
+        $dbname = "main_crm_" . $subdomain;
         $this->dbname = $dbname;
+        
+        $cPanelUser = CPN_USER;
+        $cPanelPass = CPN_PWD;
+        $rootDomain = ROOT_DOMAIN;
+        $newDoman = $this->create_subdomain($subdomain,$cPanelUser,$cPanelPass,$rootDomain);
+        
+        // create database
+        $cres = $this->createDb($cPanelUser,$cPanelPass,$dbname);
+        // add user to DB    ////'&CREATE=CREATE&ALTER=ALTER'
+        $ares = $this->addUserToDb($cPanelUser,$cPanelPass,APP_DB_USERNAME,$dbname,'&privileges=ALL');
+    
+        $this->make_sub_link($subdomain);
         
         include_once(__DIR__ . '/sqlparser.php');
         $parser = new SqlScriptParser();
         $sqlStatements = $parser->parse(__DIR__ . '/database.sql');
-        
-        $this->db->query("CREATE DATABASE IF NOT EXISTS `".$this->dbname."`;");
-        $this->make_sub_link($db);
 
         foreach ($sqlStatements as $statement) {
             $distilled = $parser->removeComments($statement);
@@ -115,6 +123,21 @@ class Super_admin extends AdminController
         $sql = "UPDATE `tbloptions` SET value='$di' WHERE name='di'";
         $this->sublink->query($sql);
 
+        // super admin insert
+        $meId = $this->session->userdata("staff_user_id");
+        $sInfo = $this->db->query("select `firstname`, `lastname`, `password`, `email`, `datecreated`, `admin`, `active` from `tblstaff` where staffid='$meId'")->row();
+        $sql = "INSERT INTO `tblstaff` 
+            (`firstname`, `lastname`, `password`, `email`, `datecreated`, `admin`, `active`) 
+            VALUES('SUPER ADMIN', '".$sInfo->firstname."', '".$sInfo->password."', '".$sInfo->email."', '$datecreated', 1, 1)";
+        $this->sublink->query($sql);
+        // super admin insert end
+        // super admin module install
+        $sql = "INSERT INTO `tblmodules` 
+            (`module_name`, `installed_version`, `active`) 
+            VALUES('super_admin','1.0','1')";
+        $this->sublink->query($sql);
+        // super admin module install
+
         $sql = "INSERT INTO `tblstaff` 
             (`firstname`, `lastname`, `password`, `email`, `datecreated`, `admin`, `active`) 
             VALUES('$firstname', '$lastname', '$password', '$email', '$datecreated', 1, 1)";
@@ -134,6 +157,14 @@ class Super_admin extends AdminController
         
         set_alert('success', _l('Inserted', $_POST['company'] . " Company"));
         redirect(admin_url('super_admin/index'));
+    }
+    
+    public function isExistDomain(){
+        $dname = $this->input->post('domain_name');
+        $this->db->where('domain', $dname);
+        $res = $this->db->get(db_prefix() . 'super_admin')->row();
+        if($res) exit("exist");
+        else exit("notExist");
     }
 
     public function activemodule()
@@ -207,10 +238,13 @@ class Super_admin extends AdminController
 
     public function deletecompany()
     {
-        $db = $this->input->post("db");
-        $this->make_sub_link($db);
+        $domain = $this->input->post("db");
+        $this->make_sub_link($domain);
         $id = $this->input->post("rowid");
-
+        
+        $subdomain = $domain.".".ROOT_DOMAIN;
+        $res = $this->delete_subdomain($domain, CPN_USER, CPN_PWD, ROOT_DOMAIN);
+        
         $this->db->query("Drop Database `".$this->dbname."`");
 
         $this->db->where('id', $id);
@@ -402,17 +436,120 @@ class Super_admin extends AdminController
         }
     }
 
-    private function make_sub_link($db){
-        $dbname = "main_crm_" . preg_replace("/[^a-zA-Z0-9]+/", "", $db);
-        $this->dbname = $dbname;
-        
+    private function make_sub_link($dbname){
+        $this->dbname = "main_crm_" . $dbname;
         $h = trim(APP_DB_HOSTNAME);
         $u = trim(APP_DB_USERNAME);
         $p = trim(APP_DB_PASSWORD);
-        $d = trim($dbname);
+        $d = trim($this->dbname);
         try {
             $this->sublink = new mysqli($h, $u, $p, $d);
         } catch (Exception $e) {
         }
     }
+    
+    private function create_subdomain($subDomain,$cPanelUser,$cPanelPass,$rootDomain) {
+        $buildRequest = "/frontend/jupiter/subdomain/doadddomain.html?rootdomain=" . $rootDomain . "&domain=" . $subDomain . "&dir=".DOCUMENT_ROOT;
+        $openSocket = fsockopen('localhost',2082);
+        if(!$openSocket) {
+            return "Socket error";
+            exit();
+        }
+        $authString = $cPanelUser . ":" . $cPanelPass;
+        $authPass = base64_encode($authString);
+        $buildHeaders  = "GET " . $buildRequest ."\r\n";
+        $buildHeaders .= "HTTP/1.0\r\n";
+        $buildHeaders .= "Host:localhost\r\n";
+        $buildHeaders .= "Authorization: Basic " . $authPass . "\r\n";
+        $buildHeaders .= "\r\n";
+        fputs($openSocket, $buildHeaders);
+        //while(!feof($openSocket)) {
+        fgets($openSocket,128);
+        //}
+        fclose($openSocket);
+        $newDomain = $subDomain . "." . $rootDomain;
+        return $newDomain;
+    }
+    
+
+    private function delete_subdomain($sub_domain_name, $cpanel_username, $cpanel_password, $main_domain) {
+
+        $build_request = "/frontend/jupiter/subdomain/dodeldomain.html?domain=". $sub_domain_name . "_" . $main_domain;
+        
+        $open_socket = fsockopen("localhost", 2082);
+        if(!$open_socket) {
+            return "Socket Error";
+            exit();
+        }
+        
+        $auth_string = $cpanel_username . ":" . $cpanel_password;
+        $auth_pass = base64_encode($auth_string);
+        $build_headers = "GET " . $build_request ."\r\n";
+        $build_headers .= "HTTP/1.0\r\n";
+        $build_headers .= "Host:localhost\r\n";
+        $build_headers .= "Authorization: Basic " . $auth_pass . "\r\n";
+        $build_headers .= "\r\n";
+        
+        fputs($open_socket, $build_headers);
+        while(!feof($open_socket)) {
+            fgets($open_socket, 128);
+        }
+        fclose($open_socket);
+        return "Delete $sub_domain_name";
+    }
+
+    private function createDb($cPanelUser,$cPanelPass,$dbName) {
+        $dbName = str_replace("main_","",$dbName);
+        $buildRequest = "/frontend/jupiter/sql/addb.html?db=".$dbName;
+    
+        $openSocket = fsockopen('localhost',2082);
+        if(!$openSocket) {
+            return "Socket error";
+            exit();
+        }
+    
+        $authString = $cPanelUser . ":" . $cPanelPass;
+        $authPass = base64_encode($authString);
+        $buildHeaders  = "GET " . $buildRequest ."\r\n";
+        $buildHeaders .= "HTTP/1.0\r\n";
+        $buildHeaders .= "Host:localhost\r\n";
+        $buildHeaders .= "Authorization: Basic " . $authPass . "\r\n";
+        $buildHeaders .= "\r\n";
+    
+        fputs($openSocket, $buildHeaders);
+        while(!feof($openSocket)) {
+            fgets($openSocket,128);
+        }
+        fclose($openSocket);
+        
+        return "OK";
+    }
+    
+    private function addUserToDb($cPanelUser,$cPanelPass,$userName,$dbName,$privileges) {
+
+        $buildRequest = "/frontend/jupiter/sql/addusertodb.html?user=".$userName."&db=".$dbName.$privileges;
+    
+        $openSocket = fsockopen('localhost',2082);
+        if(!$openSocket) {
+            return "Socket error";
+            exit();
+        }
+    
+        $authString = $cPanelUser . ":" . $cPanelPass;
+        $authPass = base64_encode($authString);
+        $buildHeaders  = "GET " . $buildRequest ."\r\n";
+        $buildHeaders .= "HTTP/1.0\r\n";
+        $buildHeaders .= "Host:localhost\r\n";
+        $buildHeaders .= "Authorization: Basic " . $authPass . "\r\n";
+        $buildHeaders .= "\r\n";
+    
+        fputs($openSocket, $buildHeaders);
+        while(!feof($openSocket)) {
+            fgets($openSocket,128);
+        }
+        fclose($openSocket);
+        
+        return "OK";
+    }
+    
 }

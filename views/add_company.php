@@ -14,10 +14,9 @@
                         <?php echo form_open(admin_url('super_admin/addcompany'), array('class'=>'add-company-form','autocomplete'=>'on')); ?>
                             <div class="bg-stripe mbot15">
                                 <div class="text-center" style="font-size: 18px;">
-                                    Main Domain: <span>crm.experteasegroup.com</span>  <br />
-                                    <small style="color:#fb717e">Confirm the Database and Subdomain to create company!</small>
+                                    Main Domain: <span><?php echo ROOT_DOMAIN; ?></span>  <br />
                                     <hr />
-                                    <input type="hidden" name="main_domain" value="crm.experteasegroup.com" />
+                                    <input type="hidden" name="main_domain" value="<?php echo ROOT_DOMAIN; ?>" />
                                 </div>
                                 <div class="form-group" app-field-wrapper="company_name"><label for="company_name"
                                         class="control-label">
@@ -29,10 +28,13 @@
                                 <div class="form-group" app-field-wrapper="domain"><label for="domain"
                                         class="control-label">
                                         <small class="req text-danger">*
-                                        </small>Domain Name</label>
-                                    <input type="text" id="domain" name="domain" class="form-control"
-                                        placeholder="company1.experteasegroup.com"
-                                        aria-invalid="true">
+                                        </small>Sub Domain</label>
+                                        <div class="" style="height: 50px;">
+                                            <input type="text" id="domain" name="domain" class="col-sm-3 text-right"
+                                                placeholder="company1"
+                                                aria-invalid="true">
+                                            <div class="col-sm-7" style="padding-top:8px">.<?php echo ROOT_DOMAIN; ?></div>
+                                        </div>
                                 </div>
                                 <p class="mb-3 text-center"> Admin Setting</p>
                                 <div class="form-group" app-field-wrapper="first_name"><label for="first_name"
@@ -82,6 +84,20 @@
         $(this).attr("disabled", "desabled");
         $(".add-company-form").submit();
     });
+    
+    $("#domain").focusout(function(){
+        var __this = $(this);
+        $.post("<?php echo admin_url('super_admin/isExistDomain'); ?>", {
+            domain_name: __this.val()
+        }, function(res){
+            if(res == "exist") {
+                alert_float('danger', "This Domain Already Exist!");
+                __this.focus();    
+                return;
+            }
+        });
+    });
+    
     function validate_form(){
         $domainVal = $("#domain").val();
         if($("#company_name").val() == ""){
@@ -97,10 +113,10 @@
             alert_float('danger', "Don't enter your Password");
             $("#password").focus(); return true;
         }
-        if(!validURL($domainVal)) {
-            alert_float('danger', "Invalid Domain");
-            $("#domain").focus(); return true;
-        }
+        // if(!validURL($domainVal)) {
+        //     alert_float('danger', "Invalid Domain");
+        //     $("#domain").focus(); return true;
+        // }
         return false;
     }
     function validURL(str) {
