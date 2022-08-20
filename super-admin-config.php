@@ -2,11 +2,11 @@
 /**
 * Super Admin control
 */
-define("SUPER_ADMIN_MAIL","happycamper0210@gmail.com");   // super admin email
-define("ROOT_DOMAIN","experteasegroup.com");        // maindomain of subdomain
-define("DOCUMENT_ROOT","developer/perfex_crm");     // subdomain root directory
-define("CPN_USER","main");                  // cpanel user
-define("CPN_PWD","5w9DyWMK38VwJVyXFr");     // cpanel password
+define("SUPER_ADMIN_MAIL","@gmail.com");   // super admin email
+define("ROOT_DOMAIN",".com");        // maindomain of subdomain
+define("DOCUMENT_ROOT","/perfex_crm");     // subdomain root directory
+define("CPN_USER","");                  // cpanel user
+define("CPN_PWD","");     // cpanel password
 
 function db_select() {
     $curr = $_SERVER['SERVER_NAME'];
